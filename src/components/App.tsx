@@ -7,21 +7,17 @@ import {
   useUnmount,
   useEvent,
   useLocalStorage,
-  useSearchParam,
 } from "react-use";
 import { toast } from "react-toastify";
 
 import Header from "./header/header";
-import DeployButton from "./deploy-button/deploy-button";
 import { defaultHTML } from "./../../utils/consts";
 import Tabs from "./tabs/tabs";
 import AskAI from "./ask-ai/ask-ai";
-import { Auth } from "./../../utils/types";
 import Preview from "./preview/preview";
 
 function App() {
   const [htmlStorage, , removeHtmlStorage] = useLocalStorage("html_content");
-  const remix = useSearchParam("remix");
 
   const preview = useRef<HTMLDivElement>(null);
   const editor = useRef<HTMLDivElement>(null);
@@ -29,40 +25,11 @@ function App() {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
   const [isResizing, setIsResizing] = useState(false);
-  const [error, setError] = useState(false);
   const [html, setHtml] = useState((htmlStorage as string) ?? defaultHTML);
   const [isAiWorking, setisAiWorking] = useState(false);
-  const [auth, setAuth] = useState<Auth | undefined>(undefined);
   const [currentView, setCurrentView] = useState<"editor" | "preview">(
     "editor"
   );
-
-  const fetchMe = async () => {
-    const res = await fetch("/api/@me");
-    if (res.ok) {
-      const data = await res.json();
-      setAuth(data);
-    } else {
-      setAuth(undefined);
-    }
-  };
-
-  const fetchRemix = async () => {
-    if (!remix) return;
-    const res = await fetch(`/api/remix/${remix}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.html) {
-        setHtml(data.html);
-        toast.success("Remix content loaded successfully.");
-      }
-    } else {
-      toast.error("Failed to load remix content.");
-    }
-    const url = new URL(window.location.href);
-    url.searchParams.delete("remix");
-    window.history.replaceState({}, document.title, url.toString());
-  };
 
   /**
    * Resets the layout based on screen size
@@ -123,6 +90,29 @@ function App() {
     document.removeEventListener("mouseup", handleMouseUp);
   };
 
+  const handleDownloadHtml = () => {
+    if (html === defaultHTML) {
+      toast.info("Nothing to download yet.");
+      return;
+    }
+
+    try {
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "index.html"; // Or a more dynamic name if needed
+      document.body.appendChild(a); // Append anchor to body
+      a.click(); // Simulate click to trigger download
+      document.body.removeChild(a); // Remove anchor from body
+      URL.revokeObjectURL(url); // Clean up the object URL
+      toast.success("HTML file download started.");
+    } catch (error) {
+      console.error("Error downloading HTML:", error);
+      toast.error("Failed to download HTML file.");
+    }
+  };
+
   // Prevent accidental navigation away when AI is working or content has changed
   useEvent("beforeunload", (e) => {
     if (isAiWorking || html !== defaultHTML) {
@@ -133,10 +123,6 @@ function App() {
 
   // Initialize component on mount
   useMount(() => {
-    // Fetch user data
-    fetchMe();
-    fetchRemix();
-
     // Restore content from storage if available
     if (htmlStorage) {
       removeHtmlStorage();
@@ -174,15 +160,14 @@ function App() {
             window.confirm("You're about to reset the editor. Are you sure?")
           ) {
             setHtml(defaultHTML);
-            setError(false);
             removeHtmlStorage();
             editorRef.current?.revealLine(
               editorRef.current?.getModel()?.getLineCount() ?? 0
             );
           }
         }}
+        onDownload={handleDownloadHtml}
       >
-        <DeployButton html={html} error={error} auth={auth} />
       </Header>
       <main className="max-lg:flex-col flex w-full">
         <div
@@ -216,13 +201,13 @@ function App() {
               value={html}
               onValidate={(markers) => {
                 if (markers?.length > 0) {
-                  setError(true);
+                  // setError(true);
                 }
               }}
               onChange={(value) => {
                 const newValue = value ?? "";
                 setHtml(newValue);
-                setError(false);
+                // setError(false);
               }}
               onMount={(editor) => (editorRef.current = editor)}
             />
