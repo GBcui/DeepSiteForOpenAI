@@ -1,0 +1,21 @@
+# Exclude node_modules
+node_modules
+
+# Exclude logs
+*.log
+
+# Exclude temporary files
+*.tmp
+*.swp
+
+# Exclude build artifacts
+dist
+build
+
+# Exclude environment files
+.env
+.env.local
+
+# Exclude Docker-related files
+Dockerfile
+docker-compose.yml
